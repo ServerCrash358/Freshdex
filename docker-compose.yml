@@ -107,5 +107,24 @@ services:
     ports:
       - "8080:8080"
 
+  transform-layer:
+    build: ./services/transform-layer
+    container_name: freshdex-transform-layer
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      connect-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:-freshdex}:${POSTGRES_PASSWORD:-freshdex}@postgres:5432/${POSTGRES_DB:-freshdex}
+      SOURCE_TOPIC: freshdex.outbox.document
+      REQUESTS_TOPIC: freshdex.embedding.requests
+      TOMBSTONES_TOPIC: freshdex.embedding.tombstones
+      CONSUMER_GROUP: freshdex-transform-layer
+
 volumes:
   pgdata:
