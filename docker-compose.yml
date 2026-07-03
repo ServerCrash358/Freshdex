@@ -30,5 +30,82 @@ services:
       timeout: 5s
       retries: 10
 
+  redpanda:
+    image: redpandadata/redpanda:v24.2.18
+    container_name: freshdex-redpanda
+    restart: unless-stopped
+    # --mode dev-container tunes Redpanda for a small, single-node local
+    # setup (low memory/fsync overhead) instead of production defaults.
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr=internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr=internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+    ports:
+      - "19092:19092"
+      - "18081:18081"
+      - "18082:18082"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  connect:
+    image: debezium/connect:2.7.3.Final
+    container_name: freshdex-connect
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    environment:
+      GROUP_ID: freshdex-connect
+      CONFIG_STORAGE_TOPIC: freshdex_connect_configs
+      OFFSET_STORAGE_TOPIC: freshdex_connect_offsets
+      STATUS_STORAGE_TOPIC: freshdex_connect_statuses
+      BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  connect-init:
+    image: curlimages/curl:8.10.1
+    container_name: freshdex-connect-init
+    depends_on:
+      connect:
+        condition: service_healthy
+    volumes:
+      - ./connectors:/connectors:ro
+    entrypoint: ["sh", "/connectors/register.sh"]
+    restart: "no"
+
+  redpanda-console:
+    image: redpandadata/console:v2.8.4
+    container_name: freshdex-redpanda-console
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
