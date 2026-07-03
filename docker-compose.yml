@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: freshdex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-freshdex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-freshdex}
+      POSTGRES_DB: ${POSTGRES_DB:-freshdex}
+    # wal_level=logical is required for Debezium/logical replication (Section 4);
+    # it can only be set via server config/args, not a client-side SQL statement,
+    # and requires a restart to take effect -- setting it here means it's already
+    # in place the first time the server comes up.
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=4"
+      - "-c"
+      - "max_wal_senders=4"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freshdex} -d ${POSTGRES_DB:-freshdex}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
