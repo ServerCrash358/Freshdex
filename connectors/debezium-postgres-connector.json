@@ -1,0 +1,37 @@
+{
+  "name": "freshdex-outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "freshdex",
+    "database.password": "freshdex",
+    "database.dbname": "freshdex",
+    "topic.prefix": "freshdex",
+
+    "plugin.name": "pgoutput",
+    "publication.autocreate.mode": "filtered",
+    "publication.name": "freshdex_publication",
+    "slot.name": "freshdex_slot",
+
+    "table.include.list": "public.outbox",
+    "tombstones.on.delete": "false",
+
+    "snapshot.mode": "when_needed",
+
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.field.event.id": "id",
+    "transforms.outbox.table.field.event.key": "aggregate_id",
+    "transforms.outbox.table.field.event.payload": "payload",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.route.by.field": "aggregate_type",
+    "transforms.outbox.route.topic.replacement": "freshdex.outbox.${routedByValue}"
+  }
+}
