@@ -1,0 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+aiokafka==0.11.0
+asyncpg==0.29.0
+torch==2.5.1+cpu
+sentence-transformers==3.3.1

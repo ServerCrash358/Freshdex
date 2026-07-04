@@ -126,5 +126,26 @@ services:
       TOMBSTONES_TOPIC: freshdex.embedding.tombstones
       CONSUMER_GROUP: freshdex-transform-layer
 
+  embedding-worker:
+    build: ./services/embedding-worker
+    container_name: freshdex-embedding-worker
+    restart: unless-stopped
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      connect-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:-freshdex}:${POSTGRES_PASSWORD:-freshdex}@postgres:5432/${POSTGRES_DB:-freshdex}
+      REQUESTS_TOPIC: freshdex.embedding.requests
+      TOMBSTONES_TOPIC: freshdex.embedding.tombstones
+      REQUESTS_GROUP: freshdex-embedding-worker-requests
+      TOMBSTONES_GROUP: freshdex-embedding-worker-tombstones
+      EMBEDDER_BACKEND: local
+      EMBEDDER_MODEL: sentence-transformers/all-MiniLM-L6-v2
+
 volumes:
   pgdata:
