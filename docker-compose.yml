@@ -147,5 +147,19 @@ services:
       EMBEDDER_BACKEND: local
       EMBEDDER_MODEL: sentence-transformers/all-MiniLM-L6-v2
 
+  query-api:
+    build: ./services/query-api
+    container_name: freshdex-query-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:-freshdex}:${POSTGRES_PASSWORD:-freshdex}@postgres:5432/${POSTGRES_DB:-freshdex}
+      EMBEDDER_MODEL: sentence-transformers/all-MiniLM-L6-v2
+      RERANKER_MODEL: cross-encoder/ms-marco-MiniLM-L-6-v2
+    ports:
+      - "8000:8000"
+
 volumes:
   pgdata:
