@@ -24,4 +24,8 @@ curl -sf -X POST \
 
 echo ""
 echo "Registered. Status:"
-curl -sf "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status"
+# Best-effort only: the task may not have spun up yet, so a transient
+# non-2xx here shouldn't fail the whole registration, which already
+# succeeded via the POST above.
+curl -s "${CONNECT_URL}/connectors/${CONNECTOR_NAME}/status" || true
+echo ""
