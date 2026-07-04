@@ -130,6 +130,9 @@ services:
       REQUESTS_TOPIC: freshdex.embedding.requests
       TOMBSTONES_TOPIC: freshdex.embedding.tombstones
       CONSUMER_GROUP: freshdex-transform-layer
+      METRICS_PORT: "9100"
+    ports:
+      - "9100:9100"
 
   embedding-worker:
     build: ./services/embedding-worker
@@ -199,6 +202,43 @@ services:
       REDIS_URL: redis://redis:6379/0
       SOURCE_TOPIC: freshdex.outbox.document
       CONSUMER_GROUP: freshdex-cache-invalidator
+      METRICS_PORT: "9101"
+    ports:
+      - "9101:9101"
+
+  prometheus:
+    image: prom/prometheus:v3.9.0
+    container_name: freshdex-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - pushgateway
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.2
+    container_name: freshdex-pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    container_name: freshdex-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: freshdex
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
 
 volumes:
   pgdata:

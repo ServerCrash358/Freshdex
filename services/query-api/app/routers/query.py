@@ -1,7 +1,10 @@
 import asyncio
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
+
+from ..metrics import query_result_age_seconds
 
 router = APIRouter()
 
@@ -51,6 +54,10 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
     ranked = await state.retriever.search(body.query, candidates)
     if ranked:
         ranked = await asyncio.to_thread(state.reranker.rerank, body.query, ranked, top_k)
+
+    now = datetime.now(timezone.utc)
+    for r in ranked:
+        query_result_age_seconds.observe((now - r["indexed_at"]).total_seconds())
 
     if ranked:
         answer = await state.generator.generate(body.query, ranked)

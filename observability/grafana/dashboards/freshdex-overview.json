@@ -1,0 +1,74 @@
+{
+  "uid": "freshdex-overview",
+  "title": "Freshdex Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Checksum match vs mismatch rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "rate(freshdex_checksums_matched_total[5m])",
+          "legendFormat": "matched (dropped, no re-embed)",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(freshdex_checksums_mismatched_total[5m])",
+          "legendFormat": "mismatched (enqueued)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Cache invalidations by trigger",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (trigger) (rate(freshdex_cache_keys_invalidated_total[5m]))",
+          "legendFormat": "{{trigger}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Live query freshness (P95 age of returned docs)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(freshdex_query_result_age_seconds_bucket[5m]))",
+          "legendFormat": "P95 result age",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Freshness benchmark latency (P95, Prefect eval flow)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "description": "Populated by the Prefect eval flow (milestone 8) via Pushgateway -- empty until that milestone is built.",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(freshdex_freshness_latency_seconds_bucket[5m]))",
+          "legendFormat": "P95 freshness latency",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

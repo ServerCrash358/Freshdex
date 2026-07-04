@@ -5,6 +5,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from .checksum_store import ChecksumStore
 from .config import Settings
+from .metrics import checksums_matched_total, checksums_mismatched_total
 
 logger = logging.getLogger("transform-layer")
 
@@ -80,9 +81,11 @@ class TransformLayer:
         last_checksum = await self._checksum_store.get_checksum(doc_id)
 
         if last_checksum == new_checksum:
+            checksums_matched_total.inc()
             logger.info("checksum match, dropping doc_id=%s", doc_id)
             return
 
+        checksums_mismatched_total.inc()
         await self._producer.send_and_wait(
             s.requests_topic,
             key=msg.key,
