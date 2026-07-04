@@ -12,25 +12,38 @@ class QueryRequest(BaseModel):
     candidates: int | None = None
 
 
-class QueryResult(BaseModel):
+class RetrievedChunk(BaseModel):
     doc_id: str
     title: str | None
     content: str
-    content_checksum: str
-    indexed_at: str
     similarity: float
     rerank_score: float
 
 
 class QueryResponse(BaseModel):
     query: str
-    results: list[QueryResult]
+    answer: str
+    cited_doc_ids: list[str]
+    cached: bool
+    results: list[RetrievedChunk]
 
 
 @router.post("/query", response_model=QueryResponse)
 async def query(request: Request, body: QueryRequest) -> QueryResponse:
     state = request.app.state
     settings = state.settings
+
+    # Cache-aside (Section 3.3, eager population explicitly rejected there):
+    # check first, only do the expensive work on a miss.
+    cached = await state.cache.get(body.query)
+    if cached:
+        return QueryResponse(
+            query=body.query,
+            answer=cached["answer"],
+            cited_doc_ids=cached["cited_doc_ids"],
+            cached=True,
+            results=[],
+        )
 
     top_k = body.top_k or settings.default_top_k
     candidates = body.candidates or settings.default_candidates
@@ -39,15 +52,24 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
     if ranked:
         ranked = await asyncio.to_thread(state.reranker.rerank, body.query, ranked, top_k)
 
+    if ranked:
+        answer = await state.generator.generate(body.query, ranked)
+    else:
+        answer = "No relevant documents were found for this query."
+
+    cited_doc_ids = [str(r["doc_id"]) for r in ranked]
+    await state.cache.set(body.query, answer, cited_doc_ids)
+
     return QueryResponse(
         query=body.query,
+        answer=answer,
+        cited_doc_ids=cited_doc_ids,
+        cached=False,
         results=[
-            QueryResult(
+            RetrievedChunk(
                 doc_id=str(r["doc_id"]),
                 title=r["title"],
                 content=r["content"],
-                content_checksum=r["content_checksum"],
-                indexed_at=r["indexed_at"].isoformat(),
                 similarity=r["similarity"],
                 rerank_score=r["rerank_score"],
             )

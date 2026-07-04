@@ -18,3 +18,6 @@ class Settings:
     reranker_model: str = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
     default_top_k: int = int(os.getenv("DEFAULT_TOP_K", "5"))
     default_candidates: int = int(os.getenv("DEFAULT_CANDIDATES", "20"))
+    redis_url: str = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
