@@ -130,6 +130,9 @@ services:
       REQUESTS_TOPIC: freshdex.embedding.requests
       TOMBSTONES_TOPIC: freshdex.embedding.tombstones
       CONSUMER_GROUP: freshdex-transform-layer
+      METRICS_PORT: "9100"
+    ports:
+      - "9100:9100"
 
   embedding-worker:
     build: ./services/embedding-worker
@@ -199,6 +202,66 @@ services:
       REDIS_URL: redis://redis:6379/0
       SOURCE_TOPIC: freshdex.outbox.document
       CONSUMER_GROUP: freshdex-cache-invalidator
+      METRICS_PORT: "9101"
+    ports:
+      - "9101:9101"
+
+  prometheus:
+    image: prom/prometheus:v3.9.0
+    container_name: freshdex-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - pushgateway
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.2
+    container_name: freshdex-pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    container_name: freshdex-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: freshdex
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+  eval-flow:
+    build: ./evals
+    container_name: freshdex-eval-flow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      query-api:
+        condition: service_started
+      pushgateway:
+        condition: service_started
+    environment:
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:-freshdex}:${POSTGRES_PASSWORD:-freshdex}@postgres:5432/${POSTGRES_DB:-freshdex}
+      QUERY_API_URL: http://query-api:8000
+      PUSHGATEWAY_URL: http://pushgateway:9091
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: gemini-2.5-flash-lite
+      SCHEDULE_INTERVAL_SECONDS: "1800"
+      # Silences Prefect's background telemetry heartbeat, which hits a
+      # SQLite locking issue against the ephemeral local server (harmless,
+      # but noisy in logs).
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
 
 volumes:
   pgdata:

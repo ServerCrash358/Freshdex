@@ -12,3 +12,4 @@ class Settings:
     # pipeline latency after the source doc changed.
     source_topic: str = os.getenv("SOURCE_TOPIC", "freshdex.outbox.document")
     consumer_group: str = os.getenv("CONSUMER_GROUP", "freshdex-cache-invalidator")
+    metrics_port: int = int(os.getenv("METRICS_PORT", "9101"))

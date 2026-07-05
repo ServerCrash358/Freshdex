@@ -2,7 +2,8 @@ from contextlib import asynccontextmanager
 
 import asyncpg
 import redis.asyncio as redis
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .cache import AnswerCache
 from .config import Settings
@@ -38,3 +39,8 @@ app.include_router(query_router)
 @app.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+async def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

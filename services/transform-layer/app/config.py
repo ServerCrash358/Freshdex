@@ -12,3 +12,4 @@ class Settings:
     requests_topic: str = os.getenv("REQUESTS_TOPIC", "freshdex.embedding.requests")
     tombstones_topic: str = os.getenv("TOMBSTONES_TOPIC", "freshdex.embedding.tombstones")
     consumer_group: str = os.getenv("CONSUMER_GROUP", "freshdex-transform-layer")
+    metrics_port: int = int(os.getenv("METRICS_PORT", "9100"))

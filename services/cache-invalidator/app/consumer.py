@@ -5,6 +5,7 @@ import redis.asyncio as redis
 from aiokafka import AIOKafkaConsumer
 
 from .config import Settings
+from .metrics import cache_keys_invalidated_total
 
 logger = logging.getLogger("cache-invalidator")
 
@@ -59,6 +60,7 @@ class CacheInvalidator:
         cache_keys = await self._redis.smembers(docrefs_key)
         if cache_keys:
             await self._redis.delete(*cache_keys, docrefs_key)
+        cache_keys_invalidated_total.labels(trigger=trigger).inc(len(cache_keys))
         logger.info(
             "invalidated %d cache entries doc_id=%s trigger=%s",
             len(cache_keys),

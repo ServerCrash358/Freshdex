@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Freshness latency benchmark (Section 6): pushed by the Prefect eval
+  # flow (milestone 8), not scraped directly -- it's a scheduled batch job,
+  # not a long-running server. honor_labels keeps the job/instance labels
+  # the pusher set instead of Prometheus overwriting them.
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
+
+  # Checksum miss-rate (resolved location: transform layer, milestone 3/6).
+  - job_name: transform-layer
+    static_configs:
+      - targets: ["transform-layer:9100"]
+
+  # Cache invalidation correctness, labeled by trigger.
+  - job_name: cache-invalidator
+    static_configs:
+      - targets: ["cache-invalidator:9101"]
+
+  # Live (non-synthetic) freshness signal -- query result age histogram.
+  - job_name: query-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["query-api:8000"]
