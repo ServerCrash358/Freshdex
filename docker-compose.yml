@@ -240,5 +240,28 @@ services:
     depends_on:
       - prometheus
 
+  eval-flow:
+    build: ./evals
+    container_name: freshdex-eval-flow
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      query-api:
+        condition: service_started
+      pushgateway:
+        condition: service_started
+    environment:
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:-freshdex}:${POSTGRES_PASSWORD:-freshdex}@postgres:5432/${POSTGRES_DB:-freshdex}
+      QUERY_API_URL: http://query-api:8000
+      PUSHGATEWAY_URL: http://pushgateway:9091
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: gemini-2.5-flash-lite
+      SCHEDULE_INTERVAL_SECONDS: "1800"
+      # Silences Prefect's background telemetry heartbeat, which hits a
+      # SQLite locking issue against the ephemeral local server (harmless,
+      # but noisy in logs).
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+
 volumes:
   pgdata:

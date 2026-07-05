@@ -13,6 +13,18 @@ class QueryRequest(BaseModel):
     query: str
     top_k: int | None = None
     candidates: int | None = None
+    # For the freshness benchmark (milestone 8): polling the same query text
+    # repeatedly while waiting for a change to become queryable would
+    # otherwise cache the pre-update "not indexed yet" answer under that
+    # exact query, and never see the update even after indexing finishes.
+    # Freshness is a retrieval-layer property (Section 1) -- the benchmark
+    # needs to bypass the answer cache entirely to measure it honestly.
+    bypass_cache: bool = False
+    # The freshness benchmark polls repeatedly and only cares whether a
+    # chunk is retrievable (Section 1's invariant is about the vector index,
+    # not generation) -- skipping generation avoids burning a Gemini call
+    # (and free-tier rate-limit budget) on every single poll iteration.
+    retrieval_only: bool = False
 
 
 class RetrievedChunk(BaseModel):
@@ -38,7 +50,7 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
 
     # Cache-aside (Section 3.3, eager population explicitly rejected there):
     # check first, only do the expensive work on a miss.
-    cached = await state.cache.get(body.query)
+    cached = None if body.bypass_cache else await state.cache.get(body.query)
     if cached:
         return QueryResponse(
             query=body.query,
@@ -59,13 +71,16 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
     for r in ranked:
         query_result_age_seconds.observe((now - r["indexed_at"]).total_seconds())
 
-    if ranked:
+    if body.retrieval_only:
+        answer = ""
+    elif ranked:
         answer = await state.generator.generate(body.query, ranked)
     else:
         answer = "No relevant documents were found for this query."
 
     cited_doc_ids = [str(r["doc_id"]) for r in ranked]
-    await state.cache.set(body.query, answer, cited_doc_ids)
+    if not body.bypass_cache and not body.retrieval_only:
+        await state.cache.set(body.query, answer, cited_doc_ids)
 
     return QueryResponse(
         query=body.query,
